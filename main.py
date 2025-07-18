@@ -16,10 +16,10 @@ ptb_app = Application.builder().token(TOKEN).build()
 
 # --- BOT HANDLERS (Your bot's features) ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_html(f"Hi {update.effective_user.mention_html()}! I am running on Render!")
+    await update.message.reply_html(f"Hi {update.effective_user.mention_html()}! I am running on Railway!")
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("This bot is running 24/7 on a professional server.")
+    await update.message.reply_text("This bot is running on a temporary free trial.")
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"You said: {update.message.text}")
@@ -31,7 +31,7 @@ ptb_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 # --- FLASK ROUTES ---
 @app.route("/")
 def index():
-    # This is for health checks. Render will ping this to see if the bot is alive.
+    # A simple page to show the bot is alive
     return "OK"
 
 @app.route(f"/{TOKEN}", methods=["POST"])
@@ -44,7 +44,6 @@ async def webhook():
     return Response("bad request", status=400)
 
 
-# This part is crucial for Render to run the app with Gunicorn
+# Initialize the bot application once when the server starts
 if __name__ == '__main__':
-    # Initialize the bot application once
     asyncio.run(ptb_app.initialize())
