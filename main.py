@@ -1,7 +1,10 @@
 # main.py
 import os
 import asyncio
-from flask import Flask, request, Response
+from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.responses import PlainTextResponse, Response
+from starlette.routing import Route
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
@@ -10,9 +13,7 @@ TOKEN = os.environ.get('TELEGRAM_TOKEN')
 if not TOKEN:
     raise ValueError("No TELEGRAM_TOKEN found in environment variables!")
 
-# --- FLASK APP & TELEGRAM BOT SETUP ---
-# gunicorn will look for this 'app' object to run.
-app = Flask(__name__)
+# --- TELEGRAM BOT SETUP ---
 ptb_app = Application.builder().token(TOKEN).build()
 
 # A flag to ensure the bot is initialized only once.
@@ -33,14 +34,12 @@ ptb_app.add_handler(CommandHandler("help", help_command))
 ptb_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
 
-# --- FLASK ROUTES ---
-@app.route("/")
-def index():
-    # A simple page for UptimeRobot to ping
-    return "OK"
+# --- WEB SERVER ROUTES ---
+async def health_check(request: Request):
+    """A simple page for UptimeRobot to ping."""
+    return PlainTextResponse("OK")
 
-@app.route(f"/{TOKEN}", methods=["POST"])
-async def webhook():
+async def webhook(request: Request):
     """This function is called by Telegram."""
     global _is_initialized
     # Initialize the bot on the very first request.
@@ -48,9 +47,20 @@ async def webhook():
         await ptb_app.initialize()
         _is_initialized = True
 
-    if request.is_json:
-        update_data = request.get_json()
+    try:
+        update_data = await request.json()
         update = Update.de_json(update_data, ptb_app.bot)
         await ptb_app.process_update(update)
-        return Response("ok", status=200)
-    return Response("bad request", status=400)
+        return Response(status_code=200)
+    except Exception:
+        return Response(status_code=400)
+
+# Define the routes for our Starlette application
+routes = [
+    Route("/", endpoint=health_check),
+    Route(f"/{TOKEN}", endpoint=webhook, methods=["POST"]),
+]
+
+# Create the Starlette application instance
+# gunicorn will look for this 'app' object to run.
+app = Starlette(routes=routes)
